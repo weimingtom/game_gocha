@@ -1,0 +1,120 @@
+diff -cN lua5_1_3_Sources_orig/lua5.1/src/llex.c lua5_1_3_Win32_mbenc/lua5.1/src/llex.c
+*** lua5_1_3_Sources_orig/lua5.1/src/llex.c	2007-12-27 11:02:24.000000000 +0900
+--- lua5_1_3_Win32_mbenc/lua5.1/src/llex.c	2008-06-25 12:53:51.593750000 +0900
+***************
+*** 22,27 ****
+--- 22,28 ----
+  #include "lstring.h"
+  #include "ltable.h"
+  #include "lzio.h"
++ #include "mbenc.h"/* multi-byte encoding support */
+  
+  
+  
+***************
+*** 262,269 ****
+--- 263,279 ----
+          break;
+        }
+        default: {
++         int is_multibyte = 0;  /* multi-byte support */
++         if ( is_lead_byte( ls->current ) ) {  /* multi-byte support */
++           is_multibyte = 1;
++         }
+          if (seminfo) save_and_next(ls);
+          else next(ls);
++         if ( is_multibyte && ls->current != EOZ ) {  /* multi-byte support */
++           if (seminfo) save_and_next(ls);
++           else next(ls);
++           is_multibyte = 0;
++         }
+        }
+      }
+    } endloop:
+***************
+*** 319,326 ****
+          next(ls);
+          continue;
+        }
+!       default:
+          save_and_next(ls);
+      }
+    }
+    save_and_next(ls);  /* skip delimiter */
+--- 329,346 ----
+          next(ls);
+          continue;
+        }
+!       default: {
+!         int is_multibyte = 0; /* multi-byte support */
+!         if ( is_lead_byte( ls->current ) ) {  /* multi-byte support */
+!           is_multibyte = 1;
+!         }
+          save_and_next(ls);
++         if ( is_multibyte && ls->current != del && ls->current != EOZ ) {  /* multi-byte support */
++           save_and_next(ls);
++           is_multibyte = 0;
++           continue;
++         }
++       }
+      }
+    }
+    save_and_next(ls);  /* skip delimiter */
+diff -cN lua5_1_3_Sources_orig/lua5.1/src/mbenc.h lua5_1_3_Win32_mbenc/lua5.1/src/mbenc.h
+*** lua5_1_3_Sources_orig/lua5.1/src/mbenc.h	1970-01-01 09:00:00.000000000 +0900
+--- lua5_1_3_Win32_mbenc/lua5.1/src/mbenc.h	2008-06-25 12:53:51.609375000 +0900
+***************
+*** 0 ****
+--- 1,52 ----
++ /*
++ ** mbenc.h : lead-byte checking functions for multi-byte encoding
++ **
++ ** multi-byte encoding support for Lua
++ ** by ham
++ **   - OS/Architecture independent
++ **   - using ANSI-C only 
++ */
++ 
++ #ifndef mbenc_h
++ #define mbenc_h
++ 
++ /* set one of these macros to 1 */
++ /* if all values are 0, lua just process as single-byte encoding */
++ /* EUC and UTF-8 is just ok with default single-byte mode */
++ #define LUA_USE_ENC_SHIFT_JIS 1
++ #define LUA_USE_ENC_BIG5 0
++ #define LUA_USE_ENC_ANSI 0
++ 
++ /* -- japanese shift jis -- */
++ #if LUA_USE_ENC_SHIFT_JIS
++ #define is_sjis_lead_byte(c) \
++   ((0x81 <= ((unsigned char) (c)) && ((unsigned char) (c)) <= 0x9f) \
++   || (0xe0 <= ((unsigned char) (c)) && ((unsigned char) (c)) <=0xfc))
++ #define is_lead_byte(c) is_sjis_lead_byte(c)
++ #endif
++ 
++ /* -- taiwanese big5 -- */
++ #if LUA_USE_ENC_BIG5
++ /* maybe 0xA1 to 0xFE is better, but this range is ok with some sjis-japan code.
++  (notice: this is not ok with japanese sjis 1byte-kana letters) */
++ #define is_big5_lead_byte(c) \
++   (0x81 <= ((unsigned char) (c)) && ((unsigned char) (c)) <= 0xfe)
++ #define is_lead_byte(c) is_big5_lead_byte(c)
++ #endif
++ 
++ /* -- ANSI method --
++    if you use this method, put
++      setlocale(LC_ALL, ""); 
++    on your main routine before executing lua functions.
++ */
++ #if LUA_USE_ENC_ANSI
++ #include <ctype.h>
++ #define is_lead_byte(c) isleadbyte(c)
++ #endif
++ 
++ /* if no multi-byte encoding selected, just return 0(=false) */
++ #ifndef is_lead_byte
++ #define is_lead_byte(c) (0)
++ #endif
++ 
++ #endif
