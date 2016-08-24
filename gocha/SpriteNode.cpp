@@ -536,9 +536,11 @@ void SpriteNode::DrawThis(DrawSystem *ds, float xbase, float ybase, float xbases
 				glDeleteTextures(1, &m_texture);
 			}
 			m_image = TTF_RenderUNICODE_Blended(m_font, (Uint16 *) &wtext[0], m_textcolor);
-			m_texture = CreateGLTexture(m_image);
-			m_texsize_w = GetUpperPowOf2(m_image->w);
-			m_texsize_h = GetUpperPowOf2(m_image->h);
+			if (m_image != NULL) { //FIXME: render UTF-8 strings may fail under win7
+				m_texture = CreateGLTexture(m_image);
+				m_texsize_w = GetUpperPowOf2(m_image->w);
+				m_texsize_h = GetUpperPowOf2(m_image->h);
+			}
 		}
 	}
 
